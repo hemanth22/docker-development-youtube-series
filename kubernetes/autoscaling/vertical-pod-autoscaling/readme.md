@@ -1,11 +1,13 @@
 # Vertical Pod Autoscaling
 
+<a href="https://youtu.be/jcHQ5SKKTLM" title="Kubernetes"><img src="https://i.ytimg.com/vi/jcHQ5SKKTLM/hqdefault.jpg" width="20%" alt="vertical auto scaling" /></a> 
+
 ## We need a Kubernetes cluster
 
 Lets create a Kubernetes cluster to play with using [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
 
 ```
-kind create cluster --name vpa --image kindest/node:v1.19.1
+kind create cluster --name vpa --image kindest/node:v1.30.4
 ```
 <hr/>
 
@@ -18,8 +20,8 @@ kind create cluster --name vpa --image kindest/node:v1.19.1
 
 [Metric Server](https://github.com/kubernetes-sigs/metrics-server) provides container resource metrics for use in autoscaling pipelines <br/>
 
-Because I run K8s `1.19` in `kind`, the Metric Server version i need is `0.3.7` <br/>
-We will need to deploy Metric Server [0.3.7](https://github.com/kubernetes-sigs/metrics-server/releases/tag/v0.3.7) <br/>
+Because I run K8s `1.30` in `kind`, the Metric Server version i need is `0.7.2` <br/>
+We will need to deploy Metric Server [0.7.2](https://github.com/kubernetes-sigs/metrics-server/releases/tag/v0.7.2) <br/>
 I used `components.yaml`from the release page link above. <br/>
 
 <b>Important Note</b> : For Demo clusters (like `kind`), you will need to disable TLS <br/>
@@ -29,15 +31,13 @@ You can disable TLS by adding the following to the metrics-server container args
 
 ```
 - --kubelet-insecure-tls
-- --kubelet-preferred-address-types="InternalIP"
-
 ```
 
 Deployment: <br/>
 
 ```
 cd kubernetes\autoscaling
-kubectl -n kube-system apply -f .\components\metric-server\metricserver-0.3.7.yaml
+kubectl -n kube-system apply -f .\components\metric-server\components.yaml
 
 #test 
 kubectl -n kube-system get pods
@@ -49,12 +49,12 @@ kubectl top nodes
 
 ## VPA
 
-VPA docs [here]("https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler#install-command") <br/>
+VPA docs [here](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler#install-command) <br/>
 Let's install the VPA from a container that can access our cluster
 
 ```
 cd kubernetes/autoscaling/vertical-pod-autoscaling
-docker run -it --rm -v ${HOME}:/root/ -v ${PWD}:/work -w /work --net host debian:buster bash
+docker run -it --rm -v ${HOME}:/root/ -v ${PWD}:/work -w /work --net host debian:bookworm bash
 
 # install git
 apt-get update && apt-get install -y git curl nano
@@ -69,6 +69,10 @@ cd /tmp
 git clone https://github.com/kubernetes/autoscaler.git
 cd autoscaler/vertical-pod-autoscaler/
 
+# you may need to generate VPA certificates 
+bash ./pkg/admission-controller/gencerts.sh
+
+# deploy the VPA
 ./hack/vpa-up.sh
 
 # after few seconds, we can see the VPA components in:
@@ -104,7 +108,7 @@ cd kubernetes\autoscaling\components\application
 kubectl apply -f .\traffic-generator.yaml
 
 # get a terminal to the traffic-generator
-kubectl exec -it traffic-generator sh
+kubectl exec -it traffic-generator -- sh
 
 # install wrk
 apk add --no-cache wrk
